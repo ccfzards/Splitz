@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#101014">
+<title>Split — Bill, sorted.</title>
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+:root{color-scheme:dark;--bg:#101014;--panel:#19191f;--panel2:#22222b;--line:#30303a;--muted:#9b9ba8;--text:#f5f5f7;--accent:#c5f36b;--accentText:#15190d;--danger:#ff7777}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 50% -20%,#292b31 0,transparent 55%),var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+.app{max-width:560px;margin:auto;min-height:100dvh;padding:env(safe-area-inset-top) 16px calc(28px + env(safe-area-inset-bottom))}
+header{display:flex;justify-content:space-between;align-items:center;padding:18px 0 22px}.brand{font-size:23px;font-weight:850;letter-spacing:-1px}.brand span{color:var(--accent)}.pill{border:1px solid var(--line);border-radius:99px;padding:7px 11px;color:var(--muted);font-size:12px}
+h1{font-size:30px;line-height:1.05;letter-spacing:-1.3px;margin:4px 0 8px}p.sub{color:var(--muted);margin:0 0 22px}
+.card{background:linear-gradient(145deg,#1d1d24,#17171d);border:1px solid var(--line);border-radius:20px;padding:16px;margin:14px 0;box-shadow:0 12px 30px #0002}
+.section-title{font-size:16px;font-weight:750;margin:0 0 12px;display:flex;justify-content:space-between;align-items:center}
+button,.button{border:0;border-radius:13px;padding:12px 14px;font:inherit;font-weight:700;cursor:pointer;background:var(--accent);color:var(--accentText)}
+button.secondary{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+button.ghost{background:transparent;color:var(--accent);padding:7px 8px}
+button.danger{background:#3a2024;color:#ffaaaa}
+input,select{width:100%;background:#111116;border:1px solid var(--line);color:var(--text);border-radius:11px;padding:11px 12px;font:inherit;min-width:0}
+label{display:block;color:var(--muted);font-size:12px;margin:0 0 6px}
+.row{display:flex;gap:9px;align-items:center}.row>*{flex:1}.stack{display:grid;gap:11px}.muted{color:var(--muted)}.small{font-size:12px}
+.upload{border:1px dashed #555565;background:#15151b;border-radius:16px;padding:18px;text-align:center}
+.upload input{display:none}.upload .camera{font-size:28px;margin-bottom:5px}
+#preview{width:100%;max-height:220px;object-fit:contain;border-radius:12px;margin-top:12px;display:none;background:#09090c}
+.item{display:grid;grid-template-columns:minmax(0,1fr) 95px;gap:8px;padding:10px 0;border-bottom:1px solid var(--line)}.item:last-child{border:0}
+.item .who{grid-column:1/-1;display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);border-radius:99px;padding:5px 9px;font-size:12px;color:var(--muted);background:#14141a}
+.chip.active{background:#343e22;color:var(--accent);border-color:#637b36}
+.person{display:flex;gap:8px;align-items:center;background:#14141a;padding:10px;border-radius:12px;margin:7px 0}
+.person input{padding:8px}.total{font-size:27px;font-weight:850;letter-spacing:-1px}.splitline{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line)}.splitline:last-child{border:0}
+.notice{background:#292515;border:1px solid #66552b;color:#f2d88c;border-radius:12px;padding:10px 12px;font-size:12px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}.actions button{flex:1}
+.hidden{display:none!important}
+footer{text-align:center;color:#777783;font-size:11px;padding:20px 0}
+@media(min-width:500px){.app{padding-left:22px;padding-right:22px}}
+</style>
+</head>
+<body>
+<div class="app">
+<header><div class="brand">split<span>.</span></div><div class="pill">ANDROID FIRST · BETA</div></header>
+<h1>Bill, <span style="color:var(--accent)">sorted.</span></h1>
+<p class="sub">Snap the bill. Assign the bites. Settle without the awkward maths.</p>
+
+<section class="card">
+  <div class="section-title">01 / Add your bill <span class="muted small">PHOTO</span></div>
+  <label class="upload" for="billPhoto" id="uploadBox">
+    <div class="camera">📸</div><strong>Take a photo or choose an image</strong>
+    <div class="muted small">Keep the full bill in frame and make sure the text is clear.</div>
+    <input id="billPhoto" type="file" accept="image/*" capture="environment">
+    <img id="preview" alt="Bill preview">
+  </label>
+  <div class="row" style="margin-top:10px">
+    <button id="scanBtn" class="secondary">Read bill with OCR</button>
+    <button id="demoBtn" class="ghost">Try sample</button>
+  </div>
+  <p id="ocrStatus" class="muted small">OCR runs in your browser using Tesseract.js. Please review every detected item before splitting.</p>
+  <div id="ocrText" class="hidden"></div>
+</section>
+
+<section class="card">
+  <div class="section-title">02 / The group <button class="ghost" id="addPerson">+ Add person</button></div>
+  <div id="people"></div>
+  <div class="muted small">Add everyone sharing this bill. Tap a name to edit it.</div>
+</section>
+
+<section class="card">
+  <div class="section-title">03 / Items <button class="ghost" id="addItem">+ Add item</button></div>
+  <div id="items"></div>
+  <div class="row" style="margin-top:12px">
+    <div><label>Tax / GST (₹)</label><input id="tax" type="number" min="0" step="0.01" value="0"></div>
+    <div><label>Discount (₹)</label><input id="discount" type="number" min="0" step="0.01" value="0"></div>
+  </div>
+  <p class="muted small">Tax and discount are allocated proportionally to each person's item subtotal.</p>
+</section>
+
+<section class="card">
+  <div class="section-title">04 / Who owes what?</div>
+  <div class="splitline"><span class="muted">Items subtotal</span><strong id="subtotal">₹0.00</strong></div>
+  <div class="splitline"><span class="muted">Tax / GST</span><strong id="taxView">₹0.00</strong></div>
+  <div class="splitline"><span class="muted">Discount</span><strong id="discountView">−₹0.00</strong></div>
+  <div class="splitline"><strong>Total bill</strong><strong class="total" id="grandTotal">₹0.00</strong></div>
+  <div id="shares" style="margin-top:10px"></div>
+  <div class="actions" style="margin-top:14px">
+    <button id="copyBtn">Copy split summary</button>
+    <button class="secondary" id="resetBtn">Start over</button>
+  </div>
+  <p id="copyStatus" class="muted small"></p>
+</section>
+<div class="notice">Check the OCR results, item prices, people and tax figures against your original receipt. This app calculates a suggested split; it does not collect payments or connect to UPI.</div>
+<footer>split. · Your bill data stays in this browser session.</footer>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script>
+const $=s=>document.querySelector(s);
+let people=[{id:1,name:"You"},{id:2,name:"Friend 1"}], nextPerson=3, nextItem=3;
+let items=[
+ {id:1,name:"Paneer Tikka",price:280,people:[1]},
+ {id:2,name:"Butter Naan",price:60,people:[1,2]},
+];
+let billImage=null;
+const money=n=>"₹"+(Number(n)||0).toFixed(2);
+function renderPeople(){
+ $('#people').innerHTML=people.map(p=>`<div class="person"><input aria-label="Person name" data-person="${p.id}" value="${esc(p.name)}"><button class="danger" data-remove-person="${p.id}" ${people.length===1?'disabled':''}>×</button></div>`).join('');
+}
+function renderItems(){
+ $('#items').innerHTML=items.map(it=>`<div class="item">
+ <input aria-label="Item name" data-item-name="${it.id}" value="${esc(it.name)}" placeholder="Item name">
+ <input aria-label="Item price" data-item-price="${it.id}" type="number" min="0" step="0.01" value="${it.price}">
+ <div class="who">${people.map(p=>`<button class="chip ${it.people.includes(p.id)?'active':''}" data-assign="${it.id}" data-to="${p.id}">${esc(p.name)}</button>`).join('')}<button class="chip" data-remove-item="${it.id}">Remove</button></div>
+ </div>`).join('');
+}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function calculate(){
+ const sub=items.reduce((s,i)=>s+Math.max(0,Number(i.price)||0),0);
+ const tax=Math.max(0,Number($('#tax').value)||0), disc=Math.max(0,Number($('#discount').value)||0);
+ const net=Math.max(0,sub+tax-disc);
+ const shares=people.map(p=>{
+  const raw=items.reduce((s,it)=>s+(it.people.includes(p.id)&&it.people.length?(Number(it.price)||0)/it.people.length:0),0);
+  const factor=sub?raw/sub:0;
+  return {name:p.name,raw,total:factor*net};
+ });
+ $('#subtotal').textContent=money(sub);$('#taxView').textContent=money(tax);$('#discountView').textContent='−'+money(disc);$('#grandTotal').textContent=money(net);
+ $('#shares').innerHTML=shares.map(s=>`<div class="splitline"><span>${esc(s.name)} <span class="muted small">(${money(s.raw)} items)</span></span><strong>${money(s.total)}</strong></div>`).join('');
+ return {sub,tax,disc,net,shares};
+}
+function rerender(){renderPeople();renderItems();calculate();}
+$('#addPerson').onclick=()=>{people.push({id:nextPerson++,name:"Friend "+(people.length)});rerender();};
+$('#addItem').onclick=()=>{items.push({id:nextItem++,name:"New item",price:0,people:[people[0].id]});rerender();};
+document.addEventListener('input',e=>{
+ if(e.target.dataset.person){let p=people.find(x=>x.id==e.target.dataset.person);if(p){p.name=e.target.value;renderItems();calculate();}}
+ if(e.target.dataset.itemName){let i=items.find(x=>x.id==e.target.dataset.itemName);if(i)i.name=e.target.value;}
+ if(e.target.dataset.itemPrice){let i=items.find(x=>x.id==e.target.dataset.itemPrice);if(i)i.price=Number(e.target.value)||0;calculate();}
+ if(e.target.id==='tax'||e.target.id==='discount')calculate();
+});
+document.addEventListener('click',e=>{
+ const a=e.target.dataset.assign;if(a){let it=items.find(x=>x.id==a),id=Number(e.target.dataset.to);it.people=it.people.includes(id)?it.people.filter(x=>x!==id):[...it.people,id];renderItems();calculate();}
+ const rp=e.target.dataset.removePerson;if(rp){people=people.filter(p=>p.id!=rp);items.forEach(i=>i.people=i.people.filter(x=>x!=rp));rerender();}
+ const ri=e.target.dataset.removeItem;if(ri){items=items.filter(i=>i.id!=ri);renderItems();calculate();}
+});
+$('#billPhoto').onchange=e=>{
+ const f=e.target.files[0];if(!f)return;billImage=f;const img=$('#preview');img.src=URL.createObjectURL(f);img.style.display='block';$('#ocrStatus').textContent='Photo ready. Tap “Read bill with OCR”.';
+};
+$('#scanBtn').onclick=async()=>{
+ if(!billImage){$('#ocrStatus').textContent='Choose or take a bill photo first.';return;}
+ if(!window.Tesseract){$('#ocrStatus').textContent='OCR library could not load. Check your internet connection or enter items manually.';return;}
+ $('#scanBtn').disabled=true;$('#ocrStatus').textContent='Reading the receipt… this can take a little while.';
+ try{
+  const result=await Tesseract.recognize(billImage,'eng',{logger:m=>{if(m.status==='recognizing text')$('#ocrStatus').textContent='Reading… '+Math.round((m.progress||0)*100)+'%';}});
+  const text=result.data.text;$('#ocrText').textContent=text;
+  const parsed=parseReceipt(text);
+  if(parsed.length){items=parsed.map(x=>({id:nextItem++,name:x.name,price:x.price,people:[people[0].id]}));renderItems();calculate();$('#ocrStatus').textContent=`Found ${parsed.length} possible line items. Please verify names and prices; assign people below.`;}
+  else $('#ocrStatus').textContent='Text was read, but no reliable item-price pairs were detected. Add items manually or try a clearer photo.';
+ }catch(err){$('#ocrStatus').textContent='Could not read this photo. Try a sharper, well-lit image.';}
+ $('#scanBtn').disabled=false;
+};
+function parseReceipt(txt){
+ const out=[];for(const line of txt.split(/\n/)){
+  const s=line.trim().replace(/\s{2,}/g,' ');if(s.length<4)continue;
+  const m=s.match(/^(.*?)(?:\s+|[₹$])(?:₹|Rs\.?|INR)?\s*(\d{1,5}(?:[.,]\d{1,2})?)\s*$/i);
+  if(!m)continue;let name=m[1].replace(/[|:._-]+$/,'').trim(),price=Number(m[2].replace(',','.'));
+  if(name.length<2||/^(total|subtotal|tax|gst|cgst|sgst|discount|cash|change|balance|round off|amount)$/i.test(name))continue;
+  if(!Number.isFinite(price)||price<=0)continue;out.push({name,price});}
+ return out.slice(0,35);
+}
+$('#demoBtn').onclick=()=>{items=[{id:nextItem++,name:'Veg Hakka Noodles',price:220,people:[1,2]},{id:nextItem++,name:'Margherita Pizza',price:360,people:[2]},{id:nextItem++,name:'Cold Coffee',price:140,people:[1]}];$('#tax').value=36;$('#discount').value=50;rerender();$('#ocrStatus').textContent='Sample bill loaded. Try assigning items to different people.';};
+$('#copyBtn').onclick=async()=>{let c=calculate(),t='Bill split\\n'+c.shares.map(s=>s.name+': '+money(s.total)).join('\\n')+'\\nTotal: '+money(c.net);try{await navigator.clipboard.writeText(t);$('#copyStatus').textContent='Split summary copied.';}catch(e){$('#copyStatus').textContent=t;}};
+$('#resetBtn').onclick=()=>{people=[{id:1,name:'You'},{id:2,name:'Friend 1'}];nextPerson=3;nextItem=3;items=[];$('#tax').value=0;$('#discount').value=0;$('#billPhoto').value='';$('#preview').style.display='none';billImage=null;$('#ocrStatus').textContent='Start with a photo of your bill.';rerender();};
+if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+rerender();
+</script>
+</body></html>

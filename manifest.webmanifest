@@ -1,0 +1,9 @@
+{
+  "name": "Split \u2014 Bill, sorted",
+  "short_name": "Split",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#101014",
+  "theme_color": "#101014",
+  "description": "Photo-first group bill splitting app"
+}
