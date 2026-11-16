@@ -1,24 +1,24 @@
-# Split — Android-first bill splitting PWA
+# Splitz — Android-first bill splitting PWA
 
-This is a mobile-first Progressive Web App prototype. It supports:
-- Taking/selecting a receipt photo on Android
-- In-browser OCR through Tesseract.js (requires internet to load the OCR library)
-- Editable detected line items
-- Multiple people and per-item assignment (shared items divide evenly among selected people)
-- Proportional allocation of tax/GST and discount
-- Copyable settlement summary
-- Dark theme and basic offline shell caching
+Mobile-first Progressive Web App prototype.
 
-## Run locally
-Serve this folder from a local web server (not `file://`). For example:
-`python -m http.server 8000`
-Then open `http://localhost:8000`.
+## Features
+- Start with 10 participants, with no fixed limit; add more people as needed.
+- Edit participant names directly.
+- Two separate buttons: choose a bill photo from your gallery, or take a new photo with the camera.
+- In-browser OCR through Tesseract.js (requires internet to load the OCR library).
+- Review and edit detected line items.
+- Assign each item to one or more people; shared items divide evenly.
+- Allocate tax/GST and discounts proportionally to each person's item subtotal.
+- Copyable settlement summary.
+- Dark theme and basic offline shell caching.
+
+## Publish / update
+Upload `index.html`, `manifest.webmanifest`, and `sw.js` to the root of the GitHub repository and commit the changes. GitHub Pages will redeploy the site.
 
 ## Install on Android
-Deploy the folder to an HTTPS host, open it in Chrome on Android, then use
-Chrome menu → **Install app** / **Add to Home screen**.
+Open the HTTPS GitHub Pages URL in Chrome on Android, then use Chrome menu → Install app / Add to Home screen. If the app was already installed, close and reopen it after the site updates; if needed, clear the site's cached data.
 
-## Important limitations
-- OCR is best-effort and only suggests item/price pairs; always verify the receipt.
-- This prototype does not include user accounts, cloud sync, group invites, payment processing, or a signed APK.
-- For a Play Store APK, package this PWA with Capacitor and complete Android signing/testing.
+## Limitations
+- OCR is best-effort and detected prices/items must be checked against the receipt.
+- This prototype does not include accounts, cloud sync, group invites, payment processing, or a signed APK.
