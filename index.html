@@ -62,22 +62,25 @@ footer{text-align:center;color:#777783;font-size:11px;padding:20px 0}
     <img id="preview" alt="Bill preview">
   </div>
   <div class="row" style="margin-top:10px">
-    <button id="scanBtn" class="secondary">Read bill with OCR</button>
-    <button id="demoBtn" class="ghost">Try sample</button>
+    <button id="scanBtn">Read bill with OCR</button>
+    <button id="demoBtn" class="ghost" style="flex:0 0 auto">Try sample</button>
   </div>
-  <div class="row" style="margin-top:8px">
-    <button id="aiBtn">✨ Smart scan (Claude)</button>
-    <button id="keyBtn" class="ghost">API key</button>
-  </div>
-  <p class="muted small" style="margin:8px 0 0">Smart scan is optional and far more accurate on blurry or small photos. It sends the photo to Anthropic using your own API key, saved only on this device.</p>
-  <p id="ocrStatus" class="muted small">OCR runs in your browser. Best results: flat receipt, good light, text filling the frame. Always review items before splitting.</p>
+  <p id="ocrStatus" class="muted small">100% on-device OCR with auto-crop, deskew, and shadow cleanup. Always review detected items before splitting.</p>
   <details id="ocrWrap" class="hidden"><summary class="muted small">See raw OCR text</summary><pre id="ocrText" class="muted" style="white-space:pre-wrap;font-size:11px"></pre></details>
 </section>
 
 <section class="card">
-  <div class="section-title">02 / The group <button class="ghost" id="addPerson">+ Add person</button></div>
+  <div class="section-title">02 / The group <span id="peopleCount" class="muted small">10 people</span></div>
+  <div class="row" style="margin-bottom:10px">
+    <input id="bulkPeopleInput" placeholder="Add names (e.g. Raj, Sam) or count (e.g. 5)">
+    <button type="button" id="bulkAddBtn" class="secondary" style="flex:0 0 auto">+ Add</button>
+  </div>
   <div id="people"></div>
-  <div class="muted small">Start with 10 people. Edit any name directly, or add as many more people as you need.</div>
+  <div class="row" style="margin-top:10px">
+    <button type="button" class="secondary" id="addPerson">+ Add person</button>
+    <button type="button" class="ghost" id="addFivePeople" style="flex:0 0 auto">+5 people</button>
+  </div>
+  <div class="muted small" style="margin-top:8px">No limit — add as many people as you want, or enter names/a number above.</div>
 </section>
 
 <section class="card">
@@ -104,7 +107,7 @@ footer{text-align:center;color:#777783;font-size:11px;padding:20px 0}
   <p id="copyStatus" class="muted small"></p>
 </section>
 <div class="notice">Check the OCR results, item prices, people and tax figures against your original receipt. This app calculates a suggested split; it does not collect payments or connect to UPI.</div>
-<footer>splitz. · Your bill data stays in this browser session. · v9</footer>
+<footer>splitz. · Your bill data stays in this browser session. · v10</footer>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script>
@@ -119,6 +122,7 @@ let CUR='₹';
 const money=n=>CUR+(CUR.length>1?' ':'')+(Number(n)||0).toFixed(2);
 function setCurrency(c){CUR=c||'₹';document.querySelectorAll('.cur').forEach(e=>e.textContent=CUR);}
 function renderPeople(){
+ $('#peopleCount').textContent=people.length+(people.length===1?' person':' people');
  $('#people').innerHTML=people.map(p=>`<div class="person"><input aria-label="Person name" data-person="${p.id}" value="${esc(p.name)}"><button class="danger" data-remove-person="${p.id}" ${people.length===1?'disabled':''}>×</button></div>`).join('');
 }
 function renderItems(){
@@ -143,12 +147,45 @@ function calculate(){
  return {sub,tax,disc,net,shares};
 }
 function rerender(){renderPeople();renderItems();calculate();}
+function addMorePeople(count,customNames){
+ let lastId=null;
+ if(customNames&&customNames.length){
+  for(const rawName of customNames){
+   const clean=rawName.trim();if(!clean)continue;
+   lastId=nextPerson++;people.push({id:lastId,name:clean});
+  }
+ }else{
+  const total=Math.max(1,Math.min(500,Number(count)||1));
+  for(let k=0;k<total;k++){
+   let n=people.length;while(people.some(p=>p.name==="Friend "+n))n++;
+   lastId=nextPerson++;people.push({id:lastId,name:"Friend "+n});
+  }
+ }
+ rerender();
+ return lastId;
+}
 $('#addPerson').onclick=()=>{
- let n=people.length;while(people.some(p=>p.name==="Friend "+n))n++;
- const id=nextPerson++;people.push({id,name:"Friend "+n});rerender();
+ const id=addMorePeople(1);
  const inp=document.querySelector('[data-person="'+id+'"]');
  if(inp){inp.scrollIntoView({block:'center',behavior:'smooth'});inp.focus();inp.select();}
 };
+$('#addFivePeople').onclick=()=>{
+ const id=addMorePeople(5);
+ const inp=document.querySelector('[data-person="'+id+'"]');
+ if(inp)inp.scrollIntoView({block:'center',behavior:'smooth'});
+};
+function handleBulkAdd(){
+ const box=$('#bulkPeopleInput'),val=box.value.trim();
+ if(!val){const id=addMorePeople(1);const inp=document.querySelector('[data-person="'+id+'"]');if(inp){inp.focus();inp.select();}return;}
+ let id=null;
+ if(/^\d+$/.test(val))id=addMorePeople(parseInt(val,10));
+ else id=addMorePeople(0,val.split(/[,;\n]+/));
+ box.value='';
+ const inp=document.querySelector('[data-person="'+id+'"]');
+ if(inp)inp.scrollIntoView({block:'center',behavior:'smooth'});
+}
+$('#bulkAddBtn').onclick=handleBulkAdd;
+$('#bulkPeopleInput').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();handleBulkAdd();}};
 $('#addItem').onclick=()=>{items.push({id:nextItem++,name:"New item",price:0,people:[people[0].id]});rerender();};
 document.addEventListener('input',e=>{
  if(e.target.dataset.person){let p=people.find(x=>x.id==e.target.dataset.person);if(p){p.name=e.target.value;renderItems();calculate();}}
@@ -170,9 +207,10 @@ function onBillPicked(e){
 $('#billGallery').onchange=onBillPicked;
 $('#billFiles').onchange=onBillPicked;
 $('#billCamera').onchange=onBillPicked;
+
+/* ---------- Enhanced Image Preprocessing: Paper Crop + Auto-Deskew + Illumination Normalization + Sharpen ---------- */
 function findPaper(bmp,w0,h0){
- // find the bright paper region so dark backgrounds / hands don't turn into junk text
- const sw=Math.min(w0,400),sh=Math.round(h0*sw/w0),c=document.createElement('canvas');c.width=sw;c.height=sh;
+ const sw=Math.min(w0,420),sh=Math.round(h0*sw/w0),c=document.createElement('canvas');c.width=sw;c.height=sh;
  const x=c.getContext('2d',{willReadFrequently:true});x.drawImage(bmp,0,0,sw,sh);
  const d=x.getImageData(0,0,sw,sh).data,g=new Uint8Array(sw*sh),hist=new Array(256).fill(0);
  for(let i=0,j=0;j<g.length;i+=4,j++){g[j]=(d[i]*299+d[i+1]*587+d[i+2]*114)/1000;hist[g[j]]++;}
@@ -183,54 +221,122 @@ function findPaper(bmp,w0,h0){
  const col=new Float32Array(sw),row=new Float32Array(sh);
  for(let y=0;y<sh;y++)for(let xx=0;xx<sw;xx++)if(g[y*sw+xx]>thr){col[xx]++;row[y]++;}
  let x1=-1,x2=-1,y1=-1,y2=-1;
- for(let xx=0;xx<sw;xx++)if(col[xx]/sh>0.25){if(x1<0)x1=xx;x2=xx;}
- for(let y=0;y<sh;y++)if(row[y]/sw>0.25){if(y1<0)y1=y;y2=y;}
+ for(let xx=0;xx<sw;xx++)if(col[xx]/sh>0.22){if(x1<0)x1=xx;x2=xx;}
+ for(let y=0;y<sh;y++)if(row[y]/sw>0.22){if(y1<0)y1=y;y2=y;}
  if(x1<0||y1<0)return null;
- const px=Math.round(sw*0.02),py=Math.round(sh*0.01);
+ const px=Math.round(sw*0.025),py=Math.round(sh*0.015);
  x1=Math.max(0,x1-px);x2=Math.min(sw-1,x2+px);y1=Math.max(0,y1-py);y2=Math.min(sh-1,y2+py);
- if((x2-x1+1)*(y2-y1+1)<0.25*sw*sh)return null;
+ if((x2-x1+1)*(y2-y1+1)<0.20*sw*sh)return null;
  const f=w0/sw;return {sx:Math.round(x1*f),sy:Math.round(y1*f),sw:Math.round((x2-x1+1)*f),sh:Math.round((y2-y1+1)*f)};
+}
+function estimateSkew(bmp,crop){
+ // Find rotation angle (-6 to +6 deg) that maximizes horizontal text-line contrast
+ const sw=260,sh=Math.max(80,Math.round(crop.sh*sw/crop.sw));
+ const c=document.createElement('canvas');c.width=sw;c.height=sh;
+ const ctx=c.getContext('2d',{willReadFrequently:true});
+ ctx.fillStyle='#fff';ctx.fillRect(0,0,sw,sh);
+ ctx.drawImage(bmp,crop.sx,crop.sy,crop.sw,crop.sh,0,0,sw,sh);
+ const d=ctx.getImageData(0,0,sw,sh).data,g=new Uint8Array(sw*sh);
+ let mean=0;
+ for(let i=0,j=0;j<g.length;i+=4,j++){const v=(d[i]*299+d[i+1]*587+d[i+2]*114)/1000;g[j]=v;mean+=v;}
+ mean/=g.length;
+ let bestAngle=0,bestScore=-1;
+ const yStart=Math.floor(sh*0.1),yEnd=Math.floor(sh*0.9),xStart=Math.floor(sw*0.08),xEnd=Math.floor(sw*0.92);
+ for(let deg=-6;deg<=6;deg+=0.5){
+  const rad=deg*Math.PI/180,sin=Math.sin(rad),cos=Math.cos(rad);
+  const cx=sw/2,cy=sh/2;
+  let score=0,prev=0;
+  for(let y=yStart;y<yEnd;y++){
+   let rowInk=0;
+   for(let x=xStart;x<xEnd;x+=2){
+    const rx=Math.round((x-cx)*cos-(y-cy)*sin+cx);
+    const ry=Math.round((x-cx)*sin+(y-cy)*cos+cy);
+    if(rx>=0&&rx<sw&&ry>=0&&ry<sh){
+     const v=g[ry*sw+rx];
+     if(v<mean*0.88)rowInk++;
+    }
+   }
+   if(y>yStart)score+=Math.abs(rowInk-prev);
+   prev=rowInk;
+  }
+  if(score>bestScore){bestScore=score;bestAngle=deg;}
+ }
+ return Math.abs(bestAngle)>=0.5?bestAngle:0;
 }
 async function loadBitmap(file){
  try{return await createImageBitmap(file,{imageOrientation:'from-image'});}
  catch(e){return await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=URL.createObjectURL(file);});}
 }
-// bin=false: upscaled grayscale with contrast stretch; bin=true: shadow-proof black & white
-function preprocess(bmp,crop,bin){
+function preprocess(bmp,crop,mode,angleDeg){
  const W0=bmp.width||bmp.naturalWidth,H0=bmp.height||bmp.naturalHeight;
  crop=crop||{sx:0,sy:0,sw:W0,sh:H0};
- let scale=Math.min(6,Math.max(0.4,1600/Math.min(crop.sw,crop.sh)));
- if(Math.max(crop.sw,crop.sh)*scale>4000)scale=4000/Math.max(crop.sw,crop.sh);
+ let scale=Math.min(6,Math.max(0.5,1800/Math.min(crop.sw,crop.sh)));
+ if(Math.max(crop.sw,crop.sh)*scale>4200)scale=4200/Math.max(crop.sw,crop.sh);
  const w=Math.round(crop.sw*scale),h=Math.round(crop.sh*scale);
  const c=document.createElement('canvas');c.width=w;c.height=h;
  const ctx=c.getContext('2d',{willReadFrequently:true});
  ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
- ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);ctx.drawImage(bmp,crop.sx,crop.sy,crop.sw,crop.sh,0,0,w,h);
+ ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);
+ if(angleDeg){
+  ctx.save();
+  ctx.translate(w/2,h/2);
+  ctx.rotate(-angleDeg*Math.PI/180);
+  ctx.drawImage(bmp,crop.sx,crop.sy,crop.sw,crop.sh,-w/2,-h/2,w,h);
+  ctx.restore();
+ }else{
+  ctx.drawImage(bmp,crop.sx,crop.sy,crop.sw,crop.sh,0,0,w,h);
+ }
  const img=ctx.getImageData(0,0,w,h),d=img.data,g=new Uint8Array(w*h);
  for(let i=0,j=0;j<g.length;i+=4,j++)g[j]=(d[i]*299+d[i+1]*587+d[i+2]*114)/1000;
- if(!bin){
-  const hist=new Array(256).fill(0);for(let j=0;j<g.length;j++)hist[g[j]]++;
-  let acc=0,lo=0,hi=255;for(let t=0;t<256;t++){acc+=hist[t];if(acc>=g.length*0.02){lo=t;break;}}
-  acc=0;for(let t=255;t>=0;t--){acc+=hist[t];if(acc>=g.length*0.02){hi=t;break;}}
-  const k=255/Math.max(1,hi-lo);
-  for(let j=0,i=0;j<g.length;j++,i+=4){const v=Math.max(0,Math.min(255,(g[j]-lo)*k));d[i]=d[i+1]=d[i+2]=v;d[i+3]=255;}
+
+ // Integral image for local illumination estimation (removes crumpled paper & finger shadows)
+ const W=w+1,integ=new Uint32Array(W*(h+1));
+ for(let y=1;y<=h;y++){let row=0;for(let x=1;x<=w;x++){row+=g[(y-1)*w+(x-1)];integ[y*W+x]=integ[(y-1)*W+x]+row;}}
+
+ if(mode==='norm'){
+  // Divide each pixel by local background brightness, then apply gentle contrast curve + unsharp mask
+  const r=Math.max(16,Math.round(w/14));
+  const norm=new Uint8Array(w*h);
+  for(let y=0;y<h;y++){
+   const y1=Math.max(0,y-r),y2=Math.min(h-1,y+r);
+   for(let x=0;x<w;x++){
+    const x1=Math.max(0,x-r),x2=Math.min(w-1,x+r),n=(x2-x1+1)*(y2-y1+1);
+    const bg=(integ[(y2+1)*W+x2+1]-integ[y1*W+x2+1]-integ[(y2+1)*W+x1]+integ[y1*W+x1])/n;
+    let v=bg>10?(g[y*w+x]/bg)*242:g[y*w+x];
+    // Stretch dark ink & clean white paper background
+    v=v>218?255:Math.max(0,Math.min(255,(v-45)*(255/173)));
+    norm[y*w+x]=v;
+   }
+  }
+  // 3x3 Unsharp mask to crisp up dot-matrix & blurry thermal text
+  for(let y=0;y<h;y++){
+   for(let x=0;x<w;x++){
+    const idx=y*w+x,center=norm[idx];
+    let val=center;
+    if(x>0&&x<w-1&&y>0&&y<h-1){
+     const blur=(norm[idx-w]+norm[idx+w]+norm[idx-1]+norm[idx+1])*0.25;
+     val=center+0.55*(center-blur);
+    }
+    const out=Math.max(0,Math.min(255,val)),k=idx*4;
+    d[k]=d[k+1]=d[k+2]=out;d[k+3]=255;
+   }
+  }
  }else{
-  const W=w+1,integ=new Uint32Array(W*(h+1));
-  for(let y=1;y<=h;y++){let row=0;for(let x=1;x<=w;x++){row+=g[(y-1)*w+(x-1)];integ[y*W+x]=integ[(y-1)*W+x]+row;}}
-  const r=Math.max(8,Math.round(w/24));
+  // Adaptive threshold (Bradley-Roth) for high-contrast B&W
+  const r=Math.max(10,Math.round(w/22));
   for(let y=0;y<h;y++){
    const y1=Math.max(0,y-r),y2=Math.min(h-1,y+r);
    for(let x=0;x<w;x++){
     const x1=Math.max(0,x-r),x2=Math.min(w-1,x+r),n=(x2-x1+1)*(y2-y1+1);
     const sum=integ[(y2+1)*W+x2+1]-integ[y1*W+x2+1]-integ[(y2+1)*W+x1]+integ[y1*W+x1];
-    const v=g[y*w+x]*n<sum*0.86?0:255,k=(y*w+x)*4;
+    const v=g[y*w+x]*n<sum*0.87?0:255,k=(y*w+x)*4;
     d[k]=d[k+1]=d[k+2]=v;d[k+3]=255;
    }
   }
  }
  ctx.putImageData(img,0,0);return c;
 }
-// show a parsed/AI result in the app
+
 function applyParsed(r,label){
  items=r.items.map(x=>({id:nextItem++,name:x.name,price:x.price,people:[people[0].id]}));
  $('#tax').value=(r.tax>0?r.tax:0).toFixed(2);
@@ -239,93 +345,56 @@ function applyParsed(r,label){
  let msg=`${label}: ${r.items.length} items totalling ${money(r.sum)}`+(r.tax>0?`, tax/charges ${money(r.tax)}`:'')+(r.disc>0?`, discount ${money(r.disc)}`:'')+'. ';
  if(r.taxIncluded)msg+='Tax is already included in the item prices, so none was added. ';
  if(r.ok)msg+='✓ Matches the totals printed on the bill.';
- else if(r.diff!==null)msg+=`⚠ Doesn’t match the bill’s printed totals (off by ${money(r.diff)}), so some amounts are probably misread. Check each price against your bill.`;
- else msg+='No printed totals found to double-check against, so please verify the prices.';
+ else if(r.diff!==null)msg+=`⚠ Off from printed total by ${money(r.diff)} — please review the prices below.`;
+ else msg+='Please verify item names and prices below.';
  $('#ocrStatus').textContent=msg;
 }
-const PASSES=[{crop:1,bin:0,psm:'6'},{crop:0,bin:1,psm:'4'},{crop:1,bin:1,psm:'6'},{crop:0,bin:0,psm:'6'}];
+
+const PASSES=[
+ {crop:1,mode:'norm',psm:'6'},
+ {crop:1,mode:'bin',psm:'6'},
+ {crop:0,mode:'norm',psm:'4'}
+];
+
 $('#scanBtn').onclick=async()=>{
  const st=$('#ocrStatus');
  if(!billImage){st.textContent='Choose a bill from your gallery, storage, or take a photo first.';return;}
  if(!window.Tesseract){st.textContent='OCR library could not load. Check your internet connection or enter items manually.';return;}
- $('#scanBtn').disabled=true;$('#aiBtn').disabled=true;let worker,label='';
+ $('#scanBtn').disabled=true;let worker,label='';
  try{
-  st.textContent='Preparing the photo…';
+  st.textContent='Straightening & cleaning up the photo…';
   const bmp=await loadBitmap(billImage),W0=bmp.width||bmp.naturalWidth,H0=bmp.height||bmp.naturalHeight;
   const paper=findPaper(bmp,W0,H0);
+  const skew=estimateSkew(bmp,paper||{sx:0,sy:0,sw:W0,sh:H0});
   worker=await Tesseract.createWorker('eng',1,{logger:m=>{if(m.status==='recognizing text')st.textContent=label+' '+Math.round((m.progress||0)*100)+'%';}});
   let best=null,bestText='';
   for(let i=0;i<PASSES.length;i++){
-   const P=PASSES[i];label=`Reading… pass ${i+1} of ${PASSES.length}`;st.textContent=label;
-   const canvas=preprocess(bmp,P.crop?paper:null,!!P.bin);
+   const P=PASSES[i];label=`Scanning bill… pass ${i+1} of ${PASSES.length}`;st.textContent=label;
+   const canvas=preprocess(bmp,P.crop?paper:null,P.mode,skew);
    await worker.setParameters({tessedit_pageseg_mode:P.psm,preserve_interword_spaces:'1'});
    const text=(await worker.recognize(canvas)).data.text,r=parseReceipt(text);
    if(!best||r.score>best.score){best=r;bestText=text;}
-   if(r.ok&&r.items.length>=2)break;   // totals add up: good enough, stop early
+   if(r.ok&&r.items.length>=2)break;
   }
   $('#ocrText').textContent=bestText;$('#ocrWrap').classList.remove('hidden');
   if(/\bAED\b/.test(bestText))setCurrency('AED');
-  if(best&&best.items.length){applyParsed(best,'Read');if(!best.ok)st.textContent+=' Tip: “Smart scan” is far more accurate on blurry or small photos.';}
-  else st.textContent='Text was read, but no reliable item-price pairs were detected. Try “Smart scan”, add items manually, or use a flatter, well-lit photo.';
+  else if(/\$/.test(bestText)&&!/₹|Rs\.?|INR/i.test(bestText))setCurrency('$');
+  if(best&&best.items.length)applyParsed(best,'Scanned');
+  else st.textContent='No clear item-price pairs detected. Check the raw OCR text below, add items manually, or try a sharper photo.';
  }catch(err){st.textContent='Could not read this photo. Try a sharper, well-lit image.';}
- finally{if(worker)try{await worker.terminate();}catch(e){}$('#scanBtn').disabled=false;$('#aiBtn').disabled=false;}
+ finally{if(worker)try{await worker.terminate();}catch(e){}$('#scanBtn').disabled=false;}
 };
-/* ---------- Smart scan (optional): Claude reads the photo using YOUR Anthropic API key ---------- */
-const AI_MODEL='claude-sonnet-5-5';
-const AI_PROMPT='This is a photo of a restaurant or shop bill. Return ONLY one JSON object, no prose and no code fences, in exactly this shape: {"currency":"INR","items":[{"name":"","qty":1,"amount":0}],"subtotal":null,"charges":[{"label":"CGST","amount":0}],"discount":null,"total":null}. Rules: "amount" is the full LINE TOTAL for that item (quantity x rate), never the unit rate. Skip lines with a zero price (add-ons/modifiers) and join an item name that wraps onto two lines. "charges" holds only tax / GST / VAT / service-charge lines (not round-off, not the subtotal). "discount" is a positive number or null. "subtotal" is the items total if printed, otherwise null. "total" is the final amount payable (grand / net total) as printed. "currency" is the ISO code (INR, AED, USD...). Plain numbers only: no currency symbols, no thousands separators. Copy digits exactly as printed; never calculate or guess a value that is not on the bill.';
-function getKey(){try{return localStorage.getItem('splitz_key')||'';}catch(e){return '';}}
-function saveKey(k){try{if(k)localStorage.setItem('splitz_key',k);else localStorage.removeItem('splitz_key');}catch(e){}}
-$('#keyBtn').onclick=()=>{
- const k=prompt('Paste your Anthropic API key (starts with sk-ant-). It is stored only on this device. Leave empty to remove a saved key.','');
- if(k===null)return;const t=k.trim();
- if(!t){saveKey('');$('#ocrStatus').textContent='API key removed from this device.';return;}
- if(!/^sk-ant-/.test(t)){$('#ocrStatus').textContent='That does not look like an Anthropic API key (it should start with sk-ant-).';return;}
- saveKey(t);$('#ocrStatus').textContent='API key saved on this device. Tap “Smart scan” to use it.';
-};
-const CUR_SYMBOLS={INR:'₹',USD:'$',EUR:'€',GBP:'£',AED:'AED',SAR:'SAR',JPY:'¥'};
-function buildFromAi(j){
- const num=v=>{const n=Number(String(v).replace(/,/g,''));return Number.isFinite(n)?n:0;};
- const its=(Array.isArray(j.items)?j.items:[]).map(i=>({name:String(i.name||'').trim(),qty:num(i.qty),price:num(i.amount)})).filter(i=>i.name&&i.price>0)
-  .map(i=>({name:i.name+(i.qty>1?' ×'+i.qty:''),price:Math.round(i.price*100)/100}));
- const tax=(Array.isArray(j.charges)?j.charges:[]).reduce((s,c)=>s+Math.max(0,num(c&&c.amount)),0);
- return finishParse({items:its,tax:Math.round(tax*100)/100,disc:Math.max(0,num(j.discount)),subtotal:num(j.subtotal),total:num(j.total)});
-}
-async function aiRead(file,key){
- const bmp=await loadBitmap(file),W0=bmp.width||bmp.naturalWidth,H0=bmp.height||bmp.naturalHeight;
- const sc=Math.min(1,1568/Math.max(W0,H0)),w=Math.round(W0*sc),h=Math.round(H0*sc);
- const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,w,h);x.drawImage(bmp,0,0,w,h);
- const data=c.toDataURL('image/jpeg',0.9).split(',')[1];
- const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
-  headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-  body:JSON.stringify({model:AI_MODEL,max_tokens:2500,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:'image/jpeg',data}},{type:'text',text:AI_PROMPT}]}]})});
- if(!res.ok){let m='';try{m=(await res.json()).error.message;}catch(e){}throw new Error(res.status===401?'your API key was rejected':(res.status+' '+m));}
- const out=await res.json(),text=(out.content||[]).map(b=>b.text||'').join(''),a=text.indexOf('{'),b=text.lastIndexOf('}');
- if(a<0||b<a)throw new Error('unexpected reply');
- return JSON.parse(text.slice(a,b+1));
-}
-$('#aiBtn').onclick=async()=>{
- const st=$('#ocrStatus');
- if(!billImage){st.textContent='Choose a bill from your gallery, storage, or take a photo first.';return;}
- if(!getKey()){$('#keyBtn').click();if(!getKey())return;}
- $('#aiBtn').disabled=true;$('#scanBtn').disabled=true;st.textContent='Smart scan: Claude is reading the bill…';
- try{
-  const j=await aiRead(billImage,getKey()),r=buildFromAi(j);
-  if(!r.items.length)throw new Error('no items found on the photo');
-  const code=String(j.currency||'').toUpperCase();setCurrency(CUR_SYMBOLS[code]||code||'₹');
-  applyParsed(r,'Smart scan');
- }catch(e){st.textContent='Smart scan failed: '+(e&&e.message?e.message:e)+'.';}
- $('#aiBtn').disabled=false;$('#scanBtn').disabled=false;
-};
+
+/* ---------- Robust Receipt Parser ---------- */
 function parseNum(t){
  t=String(t).replace(/\s/g,'');
  if(/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(t))return Math.floor(Number(t.replace(/,/g,''))*100+1e-6)/100;
  return Math.floor(Number(t.replace(',','.'))*100+1e-6)/100;
 }
 function fixDigits(s){
- // OCR often reads digits as letters inside prices: B0,00 -> 80,00
- return s.replace(/[\dOoBSlIZ][\dOoBSlIZ,]*[.,][\dOoBSlIZ]{2}/g,m=>{
+ return s.replace(/[\dOoBSlIZGq][\dOoBSlIZGq,]*[.,][\dOoBSlIZGq]{2}/g,m=>{
   const d=(m.match(/\d/g)||[]).length;if(d<m.length/2)return m;
-  return m.replace(/[Oo]/g,'0').replace(/B/g,'8').replace(/[lI]/g,'1').replace(/S/g,'5').replace(/Z/g,'2');
+  return m.replace(/[Oo]/g,'0').replace(/B/g,'8').replace(/[lI]/g,'1').replace(/S/g,'5').replace(/Z/g,'2').replace(/G/g,'6').replace(/[gq]/g,'9');
  });
 }
 const RX={
@@ -342,21 +411,35 @@ function cleanName(n){
  const name=w.join(' ').replace(/^\d{1,2}[.)]\s+/,'').replace(/^[^A-Za-z0-9]+|[|:._\-=~*]+$/g,'').trim();
  return /[A-Za-z]{2,}/.test(name)?name.charAt(0).toUpperCase()+name.slice(1):'';
 }
+function isWrapText(s){
+ if(/\d/.test(s)||RX.TAX.test(s)||RX.SKIP.test(s)||RX.DISC.test(s)||RX.SUB.test(s)||RX.GRAND.test(s))return false;
+ const seg=s.split(/\s{3,}/)[0].replace(/[()]/g,' ').replace(/\s+/g,' ').trim(),toks=seg.split(' ');
+ return !!(seg&&toks.length<=4&&toks.every(t=>/^[A-Za-z&'.\-]+$/.test(t))&&toks.some(t=>t.replace(/[^A-Za-z]/g,'').length>=3));
+}
 function parseWith(txt,mode){
  const dec=mode==='dec',PRICE=dec?/\d[\d,]*[.,]\d{2}/g:/\d[\d,]*(?:[.,]\d{1,2})?/g;
- const strict=[],loose=[];let tax=0,disc=0,subtotal=0,total=0,pending=null;
+ const strict=[],loose=[];let tax=0,disc=0,subtotal=0,total=0,pending=null,orphanPrefix='';
  const add=(list,it)=>{list.push(it);pending=it;};
  for(const raw of txt.split(/\r?\n/)){
   let s=raw.trim().replace(/\s{2,}/g,' ');if(!s)continue;
   const wasPending=pending;pending=null;
-  if(wasPending&&!/\d/.test(s)&&!RX.TAX.test(s)&&!RX.SKIP.test(s)&&!RX.DISC.test(s)&&!RX.SUB.test(s)){
-   const seg=raw.trim().split(/\s{3,}/)[0].replace(/[()]/g,' ').replace(/\s+/g,' ').trim(),toks=seg.split(' ');
-   if(seg&&toks.length<=4&&toks.every(t=>/^[A-Za-z&'.\-]+$/.test(t))&&toks.some(t=>t.replace(/[^A-Za-z]/g,'').length>=4))wasPending.base+=' '+seg;
+  // Case 1: Continuation text on the line AFTER an item+price line (e.g. "Kalmi Vada Dahi 3 221.00 663.00" -> "Chaat")
+  if(wasPending&&isWrapText(raw.trim())){
+   const seg=raw.trim().split(/\s{3,}/)[0].replace(/[()]/g,' ').replace(/\s+/g,' ').trim();
+   wasPending.base+=' '+seg;
+   orphanPrefix='';
    continue;
   }
+  // Case 2: Text-only line BEFORE a line with continuation text + price (e.g. "4 Cheese Corn" -> "Kebab 1 289.00 289.00")
+  if(!/\d/.test(s)&&isWrapText(raw.trim())){
+   const seg=raw.trim().split(/\s{3,}/)[0].replace(/[()]/g,' ').replace(/\s+/g,' ').trim();
+   orphanPrefix=orphanPrefix?(orphanPrefix+' '+seg):seg;
+   continue;
+  }
+  const curPrefix=orphanPrefix;orphanPrefix='';
   if(s.length<4)continue;
   if(/\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}/.test(s)||/\d{9,}/.test(s))continue;
-  s=fixDigits(s).replace(/(\d{2,})-(\d{2})(?=\D*$)/,'$1.$2');
+  s=fixDigits(s).replace(/(\d{2,})[-:;](\d{2})(?=\D*$)/,'$1.$2');
   if(!dec)s=s.replace(/(?:\s+[^\d\s]{1,8})+$/,'');
   const nums=[...s.matchAll(PRICE)];if(!nums.length)continue;
   const last=nums[nums.length-1];
@@ -370,12 +453,14 @@ function parseWith(txt,mode){
   const prev=nums.length>1?nums[nums.length-2]:null;
   if(dec&&prev&&/^[\s|xX*@#:.\-_~]*$/.test(s.slice(prev.index+prev[0].length,last.index))){
    const rate=parseNum(prev[0]),k=Math.round(amount/rate),ok=rate>0&&k>=1&&k<=99&&Math.abs(k*rate-amount)<1;
-   const base=cleanName(s.slice(0,prev.index));
+   let base=cleanName(s.slice(0,prev.index));
+   if(curPrefix&&base)base=curPrefix+' '+base;
    if(base){add(strict,{base,k:ok?k:1,price:ok?Math.round(k*rate*100)/100:amount});continue;}
   }
-  const base=cleanName(s.slice(0,last.index));
+  let base=cleanName(s.slice(0,last.index));
+  if(curPrefix&&base)base=curPrefix+' '+base;
   if(base)add(loose,{base,k:1,price:amount});
-  else if(!subtotal&&(strict.length+loose.length)>=2)subtotal=amount;   // bare number under the items = subtotal
+  else if(!subtotal&&(strict.length+loose.length)>=2)subtotal=amount;
  }
  const list=strict.length>=2?strict:loose;
  const items=list.slice(0,60).map(i=>({name:i.base+(i.k>1?' ×'+i.k:''),price:i.price}));
@@ -383,12 +468,10 @@ function parseWith(txt,mode){
 }
 function finishParse(r){
  const sum=r.items.reduce((s,i)=>s+i.price,0);r.sum=sum;
- // some bills quote tax that is already inside the item prices (e.g. "prices inclusive of VAT")
  if(r.total&&r.tax>0&&Math.abs(sum-r.total)<=1.6&&Math.abs(sum+r.tax-r.disc-r.total)>1.6){r.tax=0;r.taxIncluded=true;}
  const ds=[];
  if(r.subtotal)ds.push(Math.abs(sum-r.subtotal));
  if(r.total)ds.push(Math.abs(sum+r.tax-r.disc-r.total));
- // a printed subtotal is the strongest check; only fall back to the grand total when there is none
  const diff=r.subtotal?ds[0]:(ds.length?ds[0]:null),rank=ds.length?Math.min(...ds):null;
  r.diff=diff;r.ok=diff!==null&&diff<=1.6;
  r.score=rank===null?-20+r.items.length*0.01:(r.ok?1000+r.items.length:-Math.log(1+rank)*10+r.items.length*0.01);
@@ -396,9 +479,10 @@ function finishParse(r){
 }
 function parseReceipt(txt){
  const a=parseWith(txt,'dec');
- if(a.items.length>=2)return a;
+ if(a.items.length>=2&&a.ok)return a;
  const b=parseWith(txt,'int');
- return b.score>a.score||b.items.length>a.items.length?b:a;
+ if(b.score>a.score)return b;
+ return a.items.length>=2?a:(b.items.length>a.items.length?b:a);
 }
 $('#demoBtn').onclick=()=>{items=[{id:nextItem++,name:'Veg Hakka Noodles',price:220,people:[1,2]},{id:nextItem++,name:'Margherita Pizza',price:360,people:[2]},{id:nextItem++,name:'Cold Coffee',price:140,people:[1]}];$('#tax').value=36;$('#discount').value=50;rerender();$('#ocrStatus').textContent='Sample bill loaded. Try assigning items to different people.';};
 $('#copyBtn').onclick=async()=>{let c=calculate(),t='Splitz — Bill split\n'+c.shares.map(s=>s.name+': '+money(s.total)).join('\n')+'\nTotal: '+money(c.net);try{await navigator.clipboard.writeText(t);$('#copyStatus').textContent='Split summary copied.';}catch(e){$('#copyStatus').textContent=t;}};
