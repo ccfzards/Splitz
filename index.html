@@ -44,15 +44,17 @@ footer{text-align:center;color:#777783;font-size:11px;padding:20px 0}
 <p class="sub">Snap the bill. Assign the bites. Settle without the awkward maths.</p>
 
 <section class="card">
-  <div class="section-title">01 / Add your bill <span class="muted small">GALLERY · CAMERA</span></div>
+  <div class="section-title">01 / Add your bill <span class="muted small">GALLERY · FILES · CAMERA</span></div>
   <div class="upload" id="uploadBox">
     <div class="camera">🧾</div><strong>Add your bill</strong>
     <div class="muted small">Pick a saved photo from your gallery, or snap a new one. Add 10+ people and rename everyone below.</div>
     <div class="row" style="margin-top:14px">
-      <label class="button secondary" for="billGallery">🖼️ Choose from gallery</label>
-      <label class="button" for="billCamera">📸 Take photo</label>
+      <label class="button secondary" for="billGallery">🖼️ Gallery</label>
+      <label class="button secondary" for="billFiles">📁 Files</label>
+      <label class="button" for="billCamera">📸 Camera</label>
     </div>
     <input id="billGallery" type="file" accept="image/*">
+    <input id="billFiles" type="file">
     <input id="billCamera" type="file" accept="image/*" capture="environment">
     <img id="preview" alt="Bill preview">
   </div>
@@ -94,7 +96,7 @@ footer{text-align:center;color:#777783;font-size:11px;padding:20px 0}
   <p id="copyStatus" class="muted small"></p>
 </section>
 <div class="notice">Check the OCR results, item prices, people and tax figures against your original receipt. This app calculates a suggested split; it does not collect payments or connect to UPI.</div>
-<footer>split. · Your bill data stays in this browser session.</footer>
+<footer>split. · Your bill data stays in this browser session. · v4</footer>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script>
@@ -145,10 +147,13 @@ document.addEventListener('click',e=>{
  const ri=e.target.dataset.removeItem;if(ri){items=items.filter(i=>i.id!=ri);renderItems();calculate();}
 });
 function onBillPicked(e){
- const f=e.target.files[0];if(!f)return;billImage=f;const img=$('#preview');img.src=URL.createObjectURL(f);img.style.display='block';$('#ocrStatus').textContent='Photo ready. Tap “Read bill with OCR”.';
+ const f=e.target.files[0];if(!f)return;
+ if(!/^image\//.test(f.type)&&!/\.(jpe?g|png|webp|heic|heif|bmp|gif)$/i.test(f.name)){$('#ocrStatus').textContent='That file is not an image. Please pick a JPG, PNG or WEBP photo of the bill (PDFs are not supported yet).';e.target.value='';return;}
+ billImage=f;const img=$('#preview');img.src=URL.createObjectURL(f);img.style.display='block';$('#ocrStatus').textContent='Photo ready. Tap “Read bill with OCR”.';
  e.target.value='';
 }
 $('#billGallery').onchange=onBillPicked;
+$('#billFiles').onchange=onBillPicked;
 $('#billCamera').onchange=onBillPicked;
 $('#scanBtn').onclick=async()=>{
  if(!billImage){$('#ocrStatus').textContent='Choose a bill from your gallery or take a photo first.';return;}
@@ -174,7 +179,7 @@ function parseReceipt(txt){
 }
 $('#demoBtn').onclick=()=>{items=[{id:nextItem++,name:'Veg Hakka Noodles',price:220,people:[1,2]},{id:nextItem++,name:'Margherita Pizza',price:360,people:[2]},{id:nextItem++,name:'Cold Coffee',price:140,people:[1]}];$('#tax').value=36;$('#discount').value=50;rerender();$('#ocrStatus').textContent='Sample bill loaded. Try assigning items to different people.';};
 $('#copyBtn').onclick=async()=>{let c=calculate(),t='Bill split\n'+c.shares.map(s=>s.name+': '+money(s.total)).join('\n')+'\nTotal: '+money(c.net);try{await navigator.clipboard.writeText(t);$('#copyStatus').textContent='Split summary copied.';}catch(e){$('#copyStatus').textContent=t;}};
-$('#resetBtn').onclick=()=>{people=[{id:1,name:'You'},...Array.from({length:9},(_,i)=>({id:i+2,name:'Friend '+(i+1)}))];nextPerson=11;nextItem=3;items=[];$('#tax').value=0;$('#discount').value=0;$('#billGallery').value='';$('#billCamera').value='';$('#preview').style.display='none';billImage=null;$('#ocrStatus').textContent='Start with a photo of your bill.';rerender();};
+$('#resetBtn').onclick=()=>{people=[{id:1,name:'You'},...Array.from({length:9},(_,i)=>({id:i+2,name:'Friend '+(i+1)}))];nextPerson=11;nextItem=3;items=[];$('#tax').value=0;$('#discount').value=0;$('#billGallery').value='';$('#billFiles').value='';$('#billCamera').value='';$('#preview').style.display='none';billImage=null;$('#ocrStatus').textContent='Start with a photo of your bill.';rerender();};
 if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 rerender();
 </script>

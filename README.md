@@ -5,7 +5,7 @@ Mobile-first Progressive Web App prototype.
 ## Features
 - Start with 10 participants, with no fixed limit; add more people as needed.
 - Edit participant names directly.
-- Two separate buttons: choose a bill photo from your gallery, or take a new photo with the camera.
+- Three buttons: Gallery (photo picker), Files (full storage browser), Camera.
 - In-browser OCR through Tesseract.js (requires internet to load the OCR library).
 - Review and edit detected line items.
 - Assign each item to one or more people; shared items divide evenly.
