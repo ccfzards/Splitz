@@ -99,7 +99,7 @@ footer{text-align:center;color:#777783;font-size:11px;padding:20px 0}
   <p id="copyStatus" class="muted small"></p>
 </section>
 <div class="notice">Check the OCR results, item prices, people and tax figures against your original receipt. This app calculates a suggested split; it does not collect payments or connect to UPI.</div>
-<footer>splitz. · Your bill data stays in this browser session. · v5</footer>
+<footer>splitz. · Your bill data stays in this browser session. · v6</footer>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script>
@@ -136,7 +136,12 @@ function calculate(){
  return {sub,tax,disc,net,shares};
 }
 function rerender(){renderPeople();renderItems();calculate();}
-$('#addPerson').onclick=()=>{people.push({id:nextPerson++,name:"Friend "+(people.length)});rerender();};
+$('#addPerson').onclick=()=>{
+ let n=people.length;while(people.some(p=>p.name==="Friend "+n))n++;
+ const id=nextPerson++;people.push({id,name:"Friend "+n});rerender();
+ const inp=document.querySelector('[data-person="'+id+'"]');
+ if(inp){inp.scrollIntoView({block:'center',behavior:'smooth'});inp.focus();inp.select();}
+};
 $('#addItem').onclick=()=>{items.push({id:nextItem++,name:"New item",price:0,people:[people[0].id]});rerender();};
 document.addEventListener('input',e=>{
  if(e.target.dataset.person){let p=people.find(x=>x.id==e.target.dataset.person);if(p){p.name=e.target.value;renderItems();calculate();}}
@@ -172,8 +177,7 @@ $('#scanBtn').onclick=async()=>{
  $('#scanBtn').disabled=false;
 };
 function parseReceipt(txt){
- const out=[];for(const line of txt.split(/
-/)){
+ const out=[];for(const line of txt.split(/\n/)){
   const s=line.trim().replace(/\s{2,}/g,' ');if(s.length<4)continue;
   const m=s.match(/^(.*?)(?:\s+|[₹$])(?:₹|Rs\.?|INR)?\s*(\d{1,5}(?:[.,]\d{1,2})?)\s*$/i);
   if(!m)continue;let name=m[1].replace(/[|:._-]+$/,'').trim(),price=Number(m[2].replace(',','.'));
@@ -182,10 +186,7 @@ function parseReceipt(txt){
  return out.slice(0,35);
 }
 $('#demoBtn').onclick=()=>{items=[{id:nextItem++,name:'Veg Hakka Noodles',price:220,people:[1,2]},{id:nextItem++,name:'Margherita Pizza',price:360,people:[2]},{id:nextItem++,name:'Cold Coffee',price:140,people:[1]}];$('#tax').value=36;$('#discount').value=50;rerender();$('#ocrStatus').textContent='Sample bill loaded. Try assigning items to different people.';};
-$('#copyBtn').onclick=async()=>{let c=calculate(),t='Splitz — Bill split
-'+c.shares.map(s=>s.name+': '+money(s.total)).join('
-')+'
-Total: '+money(c.net);try{await navigator.clipboard.writeText(t);$('#copyStatus').textContent='Split summary copied.';}catch(e){$('#copyStatus').textContent=t;}};
+$('#copyBtn').onclick=async()=>{let c=calculate(),t='Splitz — Bill split\n'+c.shares.map(s=>s.name+': '+money(s.total)).join('\n')+'\nTotal: '+money(c.net);try{await navigator.clipboard.writeText(t);$('#copyStatus').textContent='Split summary copied.';}catch(e){$('#copyStatus').textContent=t;}};
 $('#resetBtn').onclick=()=>{people=[{id:1,name:'You'},...Array.from({length:9},(_,i)=>({id:i+2,name:'Friend '+(i+1)}))];nextPerson=11;nextItem=3;items=[];$('#tax').value=0;$('#discount').value=0;$('#billGallery').value='';$('#billFiles').value='';$('#billCamera').value='';$('#preview').style.display='none';billImage=null;$('#ocrStatus').textContent='Start with a photo of your bill.';rerender();};
 if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 rerender();
