@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#101014">
-<title>Split — Bill, sorted.</title>
+<title>Splitz — Bill, sorted.</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
 :root{color-scheme:dark;--bg:#101014;--panel:#19191f;--panel2:#22222b;--line:#30303a;--muted:#9b9ba8;--text:#f5f5f7;--accent:#c5f36b;--accentText:#15190d;--danger:#ff7777}
@@ -14,15 +14,18 @@ header{display:flex;justify-content:space-between;align-items:center;padding:18p
 h1{font-size:30px;line-height:1.05;letter-spacing:-1.3px;margin:4px 0 8px}p.sub{color:var(--muted);margin:0 0 22px}
 .card{background:linear-gradient(145deg,#1d1d24,#17171d);border:1px solid var(--line);border-radius:20px;padding:16px;margin:14px 0;box-shadow:0 12px 30px #0002}
 .section-title{font-size:16px;font-weight:750;margin:0 0 12px;display:flex;justify-content:space-between;align-items:center}
-button,.button{border:0;border-radius:13px;padding:12px 14px;font:inherit;font-weight:700;cursor:pointer;background:var(--accent);color:var(--accentText)}
+button,.button{border:0;border-radius:13px;padding:12px 14px;font:inherit;font-weight:700;cursor:pointer;background:var(--accent);color:var(--accentText);user-select:none;-webkit-tap-highlight-color:transparent}
 button.secondary{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
 button.ghost{background:transparent;color:var(--accent);padding:7px 8px}
 button.danger{background:#3a2024;color:#ffaaaa}
 input,select{width:100%;background:#111116;border:1px solid var(--line);color:var(--text);border-radius:11px;padding:11px 12px;font:inherit;min-width:0}
 label{display:block;color:var(--muted);font-size:12px;margin:0 0 6px}
 .row{display:flex;gap:9px;align-items:center}.row>*{flex:1}.stack{display:grid;gap:11px}.muted{color:var(--muted)}.small{font-size:12px}
-.upload{border:1px dashed #555565;background:#15151b;border-radius:16px;padding:18px;text-align:center}
-.upload input{display:none}.button{display:inline-block;text-align:center;line-height:1.3}label.button.secondary{background:var(--panel2);color:var(--text);border:1px solid var(--line)}.upload .camera{font-size:28px;margin-bottom:5px}
+.upload{border:1px dashed #555565;background:#15151b;border-radius:16px;padding:18px;text-align:center;position:relative}
+.upload input[type="file"]{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;opacity:0}
+.button{display:inline-block;text-align:center;line-height:1.3}
+label.button.secondary{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+.upload .camera{font-size:28px;margin-bottom:5px}
 #preview{width:100%;max-height:220px;object-fit:contain;border-radius:12px;margin-top:12px;display:none;background:#09090c}
 .item{display:grid;grid-template-columns:minmax(0,1fr) 95px;gap:8px;padding:10px 0;border-bottom:1px solid var(--line)}.item:last-child{border:0}
 .item .who{grid-column:1/-1;display:flex;gap:6px;flex-wrap:wrap}
@@ -39,22 +42,22 @@ footer{text-align:center;color:#777783;font-size:11px;padding:20px 0}
 </head>
 <body>
 <div class="app">
-<header><div class="brand">split<span>.</span></div><div class="pill">ANDROID FIRST · BETA</div></header>
+<header><div class="brand">splitz<span>.</span></div><div class="pill">ANDROID FIRST · BETA</div></header>
 <h1>Bill, <span style="color:var(--accent)">sorted.</span></h1>
 <p class="sub">Snap the bill. Assign the bites. Settle without the awkward maths.</p>
 
 <section class="card">
-  <div class="section-title">01 / Add your bill <span class="muted small">GALLERY · FILES · CAMERA</span></div>
+  <div class="section-title">01 / Add your bill <span class="muted small">GALLERY · STORAGE · CAMERA</span></div>
   <div class="upload" id="uploadBox">
     <div class="camera">🧾</div><strong>Add your bill</strong>
-    <div class="muted small">Pick a saved photo from your gallery, or snap a new one. Add 10+ people and rename everyone below.</div>
+    <div class="muted small">Pick a saved photo from your gallery or device storage, or snap a new one.</div>
     <div class="row" style="margin-top:14px">
-      <label class="button secondary" for="billGallery">🖼️ Gallery</label>
-      <label class="button secondary" for="billFiles">📁 Files</label>
-      <label class="button" for="billCamera">📸 Camera</label>
+      <button type="button" class="secondary" onclick="document.getElementById('billGallery').click()">🖼️ Gallery</button>
+      <button type="button" class="secondary" onclick="document.getElementById('billFiles').click()">📁 Storage</button>
+      <button type="button" onclick="document.getElementById('billCamera').click()">📸 Camera</button>
     </div>
     <input id="billGallery" type="file" accept="image/*">
-    <input id="billFiles" type="file">
+    <input id="billFiles" type="file" accept="image/*,application/octet-stream,*/*">
     <input id="billCamera" type="file" accept="image/*" capture="environment">
     <img id="preview" alt="Bill preview">
   </div>
@@ -96,7 +99,7 @@ footer{text-align:center;color:#777783;font-size:11px;padding:20px 0}
   <p id="copyStatus" class="muted small"></p>
 </section>
 <div class="notice">Check the OCR results, item prices, people and tax figures against your original receipt. This app calculates a suggested split; it does not collect payments or connect to UPI.</div>
-<footer>split. · Your bill data stays in this browser session. · v4</footer>
+<footer>splitz. · Your bill data stays in this browser session. · v5</footer>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script>
@@ -148,15 +151,15 @@ document.addEventListener('click',e=>{
 });
 function onBillPicked(e){
  const f=e.target.files[0];if(!f)return;
- if(!/^image\//.test(f.type)&&!/\.(jpe?g|png|webp|heic|heif|bmp|gif)$/i.test(f.name)){$('#ocrStatus').textContent='That file is not an image. Please pick a JPG, PNG or WEBP photo of the bill (PDFs are not supported yet).';e.target.value='';return;}
- billImage=f;const img=$('#preview');img.src=URL.createObjectURL(f);img.style.display='block';$('#ocrStatus').textContent='Photo ready. Tap “Read bill with OCR”.';
+ if(f.type&&!/^image\//.test(f.type)&&!/\.(jpe?g|png|webp|heic|heif|bmp|gif)$/i.test(f.name)){$('#ocrStatus').textContent='That file is not an image. Please pick a JPG, PNG or WEBP photo of the bill.';e.target.value='';return;}
+ billImage=f;const img=$('#preview');img.src=URL.createObjectURL(f);img.style.display='block';$('#ocrStatus').textContent='Photo ready ('+f.name+'). Tap “Read bill with OCR”.';
  e.target.value='';
 }
 $('#billGallery').onchange=onBillPicked;
 $('#billFiles').onchange=onBillPicked;
 $('#billCamera').onchange=onBillPicked;
 $('#scanBtn').onclick=async()=>{
- if(!billImage){$('#ocrStatus').textContent='Choose a bill from your gallery or take a photo first.';return;}
+ if(!billImage){$('#ocrStatus').textContent='Choose a bill from your gallery, storage, or take a photo first.';return;}
  if(!window.Tesseract){$('#ocrStatus').textContent='OCR library could not load. Check your internet connection or enter items manually.';return;}
  $('#scanBtn').disabled=true;$('#ocrStatus').textContent='Reading the receipt… this can take a little while.';
  try{
@@ -169,7 +172,8 @@ $('#scanBtn').onclick=async()=>{
  $('#scanBtn').disabled=false;
 };
 function parseReceipt(txt){
- const out=[];for(const line of txt.split(/\n/)){
+ const out=[];for(const line of txt.split(/
+/)){
   const s=line.trim().replace(/\s{2,}/g,' ');if(s.length<4)continue;
   const m=s.match(/^(.*?)(?:\s+|[₹$])(?:₹|Rs\.?|INR)?\s*(\d{1,5}(?:[.,]\d{1,2})?)\s*$/i);
   if(!m)continue;let name=m[1].replace(/[|:._-]+$/,'').trim(),price=Number(m[2].replace(',','.'));
@@ -178,7 +182,10 @@ function parseReceipt(txt){
  return out.slice(0,35);
 }
 $('#demoBtn').onclick=()=>{items=[{id:nextItem++,name:'Veg Hakka Noodles',price:220,people:[1,2]},{id:nextItem++,name:'Margherita Pizza',price:360,people:[2]},{id:nextItem++,name:'Cold Coffee',price:140,people:[1]}];$('#tax').value=36;$('#discount').value=50;rerender();$('#ocrStatus').textContent='Sample bill loaded. Try assigning items to different people.';};
-$('#copyBtn').onclick=async()=>{let c=calculate(),t='Bill split\n'+c.shares.map(s=>s.name+': '+money(s.total)).join('\n')+'\nTotal: '+money(c.net);try{await navigator.clipboard.writeText(t);$('#copyStatus').textContent='Split summary copied.';}catch(e){$('#copyStatus').textContent=t;}};
+$('#copyBtn').onclick=async()=>{let c=calculate(),t='Splitz — Bill split
+'+c.shares.map(s=>s.name+': '+money(s.total)).join('
+')+'
+Total: '+money(c.net);try{await navigator.clipboard.writeText(t);$('#copyStatus').textContent='Split summary copied.';}catch(e){$('#copyStatus').textContent=t;}};
 $('#resetBtn').onclick=()=>{people=[{id:1,name:'You'},...Array.from({length:9},(_,i)=>({id:i+2,name:'Friend '+(i+1)}))];nextPerson=11;nextItem=3;items=[];$('#tax').value=0;$('#discount').value=0;$('#billGallery').value='';$('#billFiles').value='';$('#billCamera').value='';$('#preview').style.display='none';billImage=null;$('#ocrStatus').textContent='Start with a photo of your bill.';rerender();};
 if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 rerender();
