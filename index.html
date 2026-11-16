@@ -107,7 +107,7 @@ footer{text-align:center;color:#777783;font-size:11px;padding:20px 0}
   <p id="copyStatus" class="muted small"></p>
 </section>
 <div class="notice">Check the OCR results, item prices, people and tax figures against your original receipt. This app calculates a suggested split; it does not collect payments or connect to UPI.</div>
-<footer>splitz. · Your bill data stays in this browser session. · v10</footer>
+<footer>splitz. · Your bill data stays in this browser session. · v11</footer>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script>
@@ -230,7 +230,6 @@ function findPaper(bmp,w0,h0){
  const f=w0/sw;return {sx:Math.round(x1*f),sy:Math.round(y1*f),sw:Math.round((x2-x1+1)*f),sh:Math.round((y2-y1+1)*f)};
 }
 function estimateSkew(bmp,crop){
- // Find rotation angle (-6 to +6 deg) that maximizes horizontal text-line contrast
  const sw=260,sh=Math.max(80,Math.round(crop.sh*sw/crop.sw));
  const c=document.createElement('canvas');c.width=sw;c.height=sh;
  const ctx=c.getContext('2d',{willReadFrequently:true});
@@ -289,12 +288,10 @@ function preprocess(bmp,crop,mode,angleDeg){
  const img=ctx.getImageData(0,0,w,h),d=img.data,g=new Uint8Array(w*h);
  for(let i=0,j=0;j<g.length;i+=4,j++)g[j]=(d[i]*299+d[i+1]*587+d[i+2]*114)/1000;
 
- // Integral image for local illumination estimation (removes crumpled paper & finger shadows)
  const W=w+1,integ=new Uint32Array(W*(h+1));
  for(let y=1;y<=h;y++){let row=0;for(let x=1;x<=w;x++){row+=g[(y-1)*w+(x-1)];integ[y*W+x]=integ[(y-1)*W+x]+row;}}
 
  if(mode==='norm'){
-  // Divide each pixel by local background brightness, then apply gentle contrast curve + unsharp mask
   const r=Math.max(16,Math.round(w/14));
   const norm=new Uint8Array(w*h);
   for(let y=0;y<h;y++){
@@ -303,12 +300,10 @@ function preprocess(bmp,crop,mode,angleDeg){
     const x1=Math.max(0,x-r),x2=Math.min(w-1,x+r),n=(x2-x1+1)*(y2-y1+1);
     const bg=(integ[(y2+1)*W+x2+1]-integ[y1*W+x2+1]-integ[(y2+1)*W+x1]+integ[y1*W+x1])/n;
     let v=bg>10?(g[y*w+x]/bg)*242:g[y*w+x];
-    // Stretch dark ink & clean white paper background
     v=v>218?255:Math.max(0,Math.min(255,(v-45)*(255/173)));
     norm[y*w+x]=v;
    }
   }
-  // 3x3 Unsharp mask to crisp up dot-matrix & blurry thermal text
   for(let y=0;y<h;y++){
    for(let x=0;x<w;x++){
     const idx=y*w+x,center=norm[idx];
@@ -322,7 +317,6 @@ function preprocess(bmp,crop,mode,angleDeg){
    }
   }
  }else{
-  // Adaptive threshold (Bradley-Roth) for high-contrast B&W
   const r=Math.max(10,Math.round(w/22));
   for(let y=0;y<h;y++){
    const y1=Math.max(0,y-r),y2=Math.min(h-1,y+r);
@@ -385,7 +379,7 @@ $('#scanBtn').onclick=async()=>{
  finally{if(worker)try{await worker.terminate();}catch(e){}$('#scanBtn').disabled=false;}
 };
 
-/* ---------- Robust Receipt Parser ---------- */
+/* ---------- Robust Receipt Parser (Strict Header & Tax Filtering) ---------- */
 function parseNum(t){
  t=String(t).replace(/\s/g,'');
  if(/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(t))return Math.floor(Number(t.replace(/,/g,''))*100+1e-6)/100;
@@ -398,18 +392,20 @@ function fixDigits(s){
  });
 }
 const RX={
- TAX:/\b(cgst|sgst|igst|utgst|gst|vat|serc|service\s*(charge|tax|chg)|s\.?\s*charge|cess)\b|c?s?gst\s*@/i,
+ TAX:/\b(cgst|sgst|igst|utgst|gst|vat|serc|service\s*(charge|tax|chg)|s\.?\s*charge|cess|taxable)\b|c?s?gst\s*@/i,
  DISC:/\b(discount|disc|coupon|promo)\b/i,
  GRAND:/(grand\s*total|net\s*(amount|payable|amt)|bill\s*(total|amount)|amount\s*(due|payable)|total\s*payable|payable)/i,
  SUB:/(sub\s*-?\s*total|total\s*amount|^total\b)/i,
- SKIP:/\b(total|amount|cash|change|balance|round(ing)?\s*off|paid|payment|upi|visa|invoice|bill\s*(no|#)|dine|table|phone|tel|mob|gstin|fssai|pan|thank|visit|qty|particulars|waiter|cashier|biller|customer|saving|saved|kot|token|sac|hsn|tin|covers?|steward|stw)\b/i
+ SKIP:/\b(total|amount|cash|change|balance|round(ing)?\s*off|paid|payment|upi|visa|invoice|bill\s*(no|#)|dine|table|phone|tel|mob|gstin|fssai|pan|thank|visit|qty|particulars|waiter|cashier|biller|customer|saving|saved|kot|token|sac|hsn|tin|covers?|steward|stw|date|time|address|highway|village|gujarat|bhopal|bangalore|madhya|pradesh|karnataka|op|dt|fx|st|road|nagar|ashok|shanthala)\b/i
 };
 function cleanName(n){
  let w=n.replace(/(₹|Rs\.?|INR|AED)\s*$/i,'').trim().split(/\s+/);
  while(w.length&&!/[A-Za-z]/.test(w[w.length-1]))w.pop();
  while(w.length>1&&(w[0].length<=2||/[|‘’“”~_=<>{}\[\]\\¥]/.test(w[0])))w.shift();
  const name=w.join(' ').replace(/^\d{1,2}[.)]\s+/,'').replace(/^[^A-Za-z0-9]+|[|:._\-=~*]+$/g,'').trim();
- return /[A-Za-z]{2,}/.test(name)?name.charAt(0).toUpperCase()+name.slice(1):'';
+ if(!/[A-Za-z]{3,}/.test(name))return '';
+ if(RX.SKIP.test(name)||RX.TAX.test(name)||RX.DISC.test(name))return '';
+ return name.charAt(0).toUpperCase()+name.slice(1);
 }
 function isWrapText(s){
  if(/\d/.test(s)||RX.TAX.test(s)||RX.SKIP.test(s)||RX.DISC.test(s)||RX.SUB.test(s)||RX.GRAND.test(s))return false;
@@ -423,14 +419,32 @@ function parseWith(txt,mode){
  for(const raw of txt.split(/\r?\n/)){
   let s=raw.trim().replace(/\s{2,}/g,' ');if(!s)continue;
   const wasPending=pending;pending=null;
-  // Case 1: Continuation text on the line AFTER an item+price line (e.g. "Kalmi Vada Dahi 3 221.00 663.00" -> "Chaat")
+  if(RX.TAX.test(s)){
+   const nums=[...s.matchAll(PRICE)];
+   if(nums.length){const amt=parseNum(nums[nums.length-1][0]);if(amt>0)tax+=amt;}
+   continue;
+  }
+  if(RX.DISC.test(s)){
+   const nums=[...s.matchAll(PRICE)];
+   if(nums.length){const amt=parseNum(nums[nums.length-1][0]);if(amt>0)disc+=amt;}
+   continue;
+  }
+  if(RX.SUB.test(s)){
+   const nums=[...s.matchAll(PRICE)];
+   if(nums.length){const amt=parseNum(nums[nums.length-1][0]);if(amt>0)subtotal=amt;}
+   continue;
+  }
+  if(RX.GRAND.test(s)){
+   const nums=[...s.matchAll(PRICE)];
+   if(nums.length){const amt=parseNum(nums[nums.length-1][0]);if(amt>0)total=amt;}
+   continue;
+  }
   if(wasPending&&isWrapText(raw.trim())){
    const seg=raw.trim().split(/\s{3,}/)[0].replace(/[()]/g,' ').replace(/\s+/g,' ').trim();
    wasPending.base+=' '+seg;
    orphanPrefix='';
    continue;
   }
-  // Case 2: Text-only line BEFORE a line with continuation text + price (e.g. "4 Cheese Corn" -> "Kebab 1 289.00 289.00")
   if(!/\d/.test(s)&&isWrapText(raw.trim())){
    const seg=raw.trim().split(/\s{3,}/)[0].replace(/[()]/g,' ').replace(/\s+/g,' ').trim();
    orphanPrefix=orphanPrefix?(orphanPrefix+' '+seg):seg;
@@ -445,10 +459,6 @@ function parseWith(txt,mode){
   const last=nums[nums.length-1];
   if(!dec&&!/^[A-Za-z€©]{0,2}[\s\/\-.)*]*$/.test(s.slice(last.index+last[0].length)))continue;
   const amount=parseNum(last[0]);if(!Number.isFinite(amount)||amount<=0||amount>9999999)continue;
-  if(RX.GRAND.test(s)){total=amount;continue;}
-  if(RX.SUB.test(s)){subtotal=amount;continue;}
-  if(RX.TAX.test(s)){tax+=amount;continue;}
-  if(RX.DISC.test(s)){disc+=amount;continue;}
   if(RX.SKIP.test(s))continue;
   const prev=nums.length>1?nums[nums.length-2]:null;
   if(dec&&prev&&/^[\s|xX*@#:.\-_~]*$/.test(s.slice(prev.index+prev[0].length,last.index))){
@@ -460,7 +470,6 @@ function parseWith(txt,mode){
   let base=cleanName(s.slice(0,last.index));
   if(curPrefix&&base)base=curPrefix+' '+base;
   if(base)add(loose,{base,k:1,price:amount});
-  else if(!subtotal&&(strict.length+loose.length)>=2)subtotal=amount;
  }
  const list=strict.length>=2?strict:loose;
  const items=list.slice(0,60).map(i=>({name:i.base+(i.k>1?' ×'+i.k:''),price:i.price}));
