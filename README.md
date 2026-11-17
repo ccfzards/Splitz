@@ -1,24 +1,27 @@
 # Splitz — Android-first bill splitting PWA
 
-Mobile-first Progressive Web App prototype.
+## Files
+Keep `index.html`, `style.css`, `app.js`, `sw.js`, and `manifest.webmanifest` together in the repository root.
 
 ## Features
-- Start with 10 participants, with no fixed limit; add more people as needed.
-- Edit participant names directly.
-- Three buttons: Gallery (photo picker), Files (full storage browser), Camera.
-- In-browser OCR through Tesseract.js (requires internet to load the OCR library).
+- Start with 10 participants and add more as needed.
+- Edit participant names.
+- Choose receipt photos from Gallery, Files, or Camera.
+- In-browser OCR using Tesseract.js.
 - Review and edit detected line items.
-- Assign each item to one or more people; shared items divide evenly.
-- Allocate tax/GST and discounts proportionally to each person's item subtotal.
+- Assign items to one or more people; shared items divide evenly.
+- Allocate tax/GST and discounts proportionally.
 - Copyable settlement summary.
-- Dark theme and basic offline shell caching.
+- Dark mobile-first interface and offline app-shell caching.
 
-## Publish / update
-Upload `index.html`, `manifest.webmanifest`, and `sw.js` to the root of the GitHub repository and commit the changes. GitHub Pages will redeploy the site.
+## Publish
+Upload all files in this package to the root of the GitHub repository. Keep the existing `manifest.webmanifest` (it is included unchanged here). GitHub Pages will redeploy after the commit.
+
+## OCR notes
+OCR runs locally in the browser after the Tesseract.js library loads from jsDelivr, so the first scan requires an internet connection. Recognition and receipt parsing are best-effort; verify all extracted rows and totals against the source receipt. Receipts vary widely in layout, and this version does not guarantee accurate automatic interpretation of every quantity/rate/amount column.
 
 ## Install on Android
-Open the HTTPS GitHub Pages URL in Chrome on Android, then use Chrome menu → Install app / Add to Home screen. If the app was already installed, close and reopen it after the site updates; if needed, clear the site's cached data.
+Open the HTTPS GitHub Pages URL in Chrome, then use Chrome menu → Install app / Add to Home screen. After updating, close and reopen the installed app. If an old shell remains, clear the site's cached data.
 
 ## Limitations
-- OCR is best-effort and detected prices/items must be checked against the receipt.
-- This prototype does not include accounts, cloud sync, group invites, payment processing, or a signed APK.
+No accounts, cloud sync, group invites, payment processing, or signed APK.
