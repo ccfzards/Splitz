@@ -3,9 +3,9 @@
 const $=s=>document.querySelector(s);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let people=[{id:1,name:'You'},...Array.from({length:9},(_,i)=>({id:i+2,name:'Friend '+(i+1)}))];
-let nextPerson=11,nextItem=1,items=[],billImage=null,CUR='₹';
+let nextPerson=11,nextItem=1,items=[],billImage=null,CUR='Rs';
 const money=n=>CUR+(CUR.length>1?' ':'')+(Number(n)||0).toFixed(2);
-function setCurrency(c){CUR=c;document.querySelectorAll('.cur').forEach(e=>e.textContent=c)}
+function setCurrency(){CUR='Rs';document.querySelectorAll('.cur').forEach(e=>e.textContent='Rs ')}
 function calculate(){
  const sub=items.reduce((s,i)=>s+Math.max(0,Number(i.price)||0),0),tax=Math.max(0,+$('#tax').value||0),disc=Math.max(0,+$('#discount').value||0),net=Math.max(0,sub+tax-disc);
  const shares=people.map(p=>{const raw=items.reduce((s,it)=>s+(it.people.includes(p.id)&&it.people.length?(+it.price||0)/it.people.length:0),0);return{name:p.name,raw,total:sub?raw/sub*net:0}});
@@ -50,6 +50,8 @@ const DISC=/\b(discount|disc(?:ount)?|coupon|promo)\b/i;
 const GRAND=/(grand\s*total|net\s*(amount|payable)|bill\s*(total|amount)|amount\s*(due|payable)|total\s*payable|bill\s*amt)/i;
 const SUB=/(sub\s*-?\s*total|total\s*amount|^total\b)/i;
 const META=/\b(invoice|bill\s*(no|number)|gstin|fssai|phone|mobile|cashier|waiter|steward|table|covers?|date|time|address|thank|visit|round\s*off|payment|upi|visa|mastercard|kot\s*no|hsn|sac|tin|state|pin\s*code)\b/i;
+// Address fragments must never become purchasable line items (e.g. the 16 in Sector 16).
+const ADDRESS=/\b(sector|market|faridabad|haryana|street|st(?:reet)?\.?|road|rd\.?|avenue|lane|block|plot|phase|industrial\s+area|colony|nagar|pin\s*code|postal\s*code)\b/i;
 function parseMoney(s){
  let x=String(s).replace(/[₹$]/g,'').replace(/\b(?:rs\.?|inr|aed)\b/ig,'').replace(/\s/g,'').replace(/[^\d,.-]/g,'');
  if(!x)return NaN;const c=x.lastIndexOf(','),d=x.lastIndexOf('.');
@@ -59,10 +61,12 @@ function parseMoney(s){
 }
 /* Cluster Tesseract word boxes into physical text rows, then retain left-to-right order. */
 function wordsToRows(words){
- const ws=(words||[]).filter(w=>w.text&&String(w.text).trim()&&(w.confidence==null||w.confidence>15)).map(w=>({text:String(w.text).trim(),x:(w.bbox.x0+w.bbox.x1)/2,y:(w.bbox.y0+w.bbox.y1)/2,h:w.bbox.y1-w.bbox.y0}));
+ const ws=(words||[]).filter(w=>w.text&&String(w.text).trim()&&(w.confidence==null||w.confidence>12)).map(w=>({text:String(w.text).trim(),x:(w.bbox.x0+w.bbox.x1)/2,y:(w.bbox.y0+w.bbox.y1)/2,h:w.bbox.y1-w.bbox.y0}));
  ws.sort((a,b)=>a.y-b.y||a.x-b.x);const rows=[];
- for(const w of ws){let best=null,bestDiff=Infinity;for(const r of rows){const diff=Math.abs(r.cy-w.y);if(diff<Math.max(7,(r.h+w.h)*.32)&&diff<bestDiff){best=r;bestDiff=diff}}
-  if(!best)rows.push({cy:w.y,h:w.h,words:[w]});else{best.words.push(w);best.cy=best.words.reduce((s,z)=>s+z.y,0)/best.words.length;best.h=Math.max(best.h,w.h)}
+ // Use a deliberately tight baseline tolerance: thermal receipts often have
+ // closely spaced rows, and merging two rows corrupts both names and amounts.
+ for(const w of ws){let best=null,bestDiff=Infinity;for(const r of rows){const diff=Math.abs(r.cy-w.y),tol=Math.max(4,Math.min(10,(r.h+w.h)*.20));if(diff<tol&&diff<bestDiff){best=r;bestDiff=diff}}
+  if(!best)rows.push({cy:w.y,h:w.h,words:[w]});else{best.words.push(w);best.cy=best.words.reduce((a,z)=>a+z.y,0)/best.words.length;best.h=Math.max(best.h,w.h)}
  }
  return rows.sort((a,b)=>a.cy-b.cy).map(r=>r.words.sort((a,b)=>a.x-b.x));
 }
@@ -73,23 +77,35 @@ function finishResult(r){
  return r;
 }
 function parseOcr(data){
- const rows=wordsToRows(data.words),found=[];let tax=0,discount=0,subtotal=0,total=0,pending=-1;const lines=[];
+ const rows=wordsToRows(data.words),found=[];let tax=0,discount=0,subtotal=0,total=0,pending=-1;const lines=rows.map(row=>row.map(w=>w.text).join(' '));
  const numeric=/^(?:₹|rs\.?|inr|aed|\$)?-?\d[\d,]*(?:[.,]\d{1,2})?$/i;
- for(const row of rows){
-  const line=row.map(w=>w.text).join(' ');lines.push(line);
-  const nums=row.filter(w=>numeric.test(w.text.replace(/[|]/g,''))).map(w=>({...w,value:parseMoney(w.text)})).filter(w=>Number.isFinite(w.value));
-  const last=nums.at(-1);
-  if(TAX.test(line)){if(last)tax+=Math.abs(last.value);pending=-1;continue}
-  if(DISC.test(line)){if(last)discount+=Math.abs(last.value);pending=-1;continue}
-  if(GRAND.test(line)){if(last)total=Math.abs(last.value);pending=-1;continue}
-  if(SUB.test(line)){if(last)subtotal=Math.abs(last.value);pending=-1;continue}
-  if(!last){if(pending>=0&&!META.test(line)&&/[A-Za-z]{2}/.test(line)&&line.length<65)found[pending].name+=' '+line;continue}
-  if(META.test(line))continue;
-  const amount=Math.abs(last.value);if(amount<=0||amount>9999999)continue;
-  let name=row.filter(w=>w.x<last.x-2&&!numeric.test(w.text)).map(w=>w.text).join(' ').replace(/^[#\d.)-]+\s*/,'').replace(/\s+/g,' ').trim();
-  name=name.replace(/^\d{1,3}\s*[.)-]?\s+/,'').trim();
-  if(!/[A-Za-z]{2}/.test(name)||TAX.test(name)||DISC.test(name)||META.test(name))continue;
-  found.push({name:name.slice(0,75),price:amount});pending=found.length-1;
+ const moneyWords=row=>row.filter(w=>numeric.test(w.text.replace(/[|]/g,''))).map(w=>({...w,value:parseMoney(w.text)})).filter(w=>Number.isFinite(w.value));
+ // Restrict item extraction to the table body. Footer totals/tax must never
+ // become purchasable items even when OCR misses words such as CGST or SGST.
+ let header=rows.findIndex(row=>{const t=row.map(w=>w.text).join(' ').toLowerCase();return /item|description/.test(t)&&/(qty|quantity)/.test(t)&&/(price|amount)/.test(t)});
+ if(header<0)header=rows.findIndex(row=>moneyWords(row).length>=2&&row.some(w=>/[a-z]{2}/i.test(w.text)));
+ const footer=rows.findIndex((row,i)=>i>(header<0?0:header)&&/(sub.?total|total\s*qty|cgst|sgst|igst|grand\s*total|round.?off|thank.?you|visit.?again)/i.test(row.map(w=>w.text).join(' ')));
+ // Read receipt summary values separately from item rows.
+ for(let i=0;i<rows.length;i++){
+  const line=lines[i],nums=moneyWords(rows[i]),last=nums.at(-1);
+  if(/grand\s*total|net\s*(amount|payable)|bill\s*(total|amount)|amount\s*(due|payable)|total\s*payable/i.test(line)){if(last)total=Math.abs(last.value);continue}
+  if(/sub.?total|total\s*amount/i.test(line)){if(last)subtotal=Math.abs(last.value);continue}
+  if(/cgst|sgst|igst|utgst|gst|vat|cess|service\s*(charge|tax)/i.test(line)){if(last)tax+=Math.abs(last.value);continue}
+  if(/discount|coupon|promo/i.test(line)){if(last)discount+=Math.abs(last.value);continue}
+ }
+ const stop=footer<0?rows.length:footer;
+ for(let i=Math.max(0,header+1);i<stop;i++){
+  const row=rows[i],line=lines[i],nums=moneyWords(row),first=nums[0],last=nums.at(-1);
+  if(!nums.length){if(pending>=0&&/[A-Za-z]{2}/.test(line)&&line.length<65&&!META.test(line)&&!ADDRESS.test(line))found[pending].name+=' '+line;continue}
+  if(nums.length<2){
+   // A lone number is only accepted if it sits in the far-right amount column.
+   if(!last||last.x<Math.max(0,...row.map(w=>w.x))*.72)continue;
+  }
+  if(!first||!last||last.value<=0||last.value>9999999)continue;
+  const name=row.filter(w=>w.x<first.x-2&&!numeric.test(w.text.replace(/[|]/g,''))).map(w=>w.text).join(' ').replace(/^[#\d.)-]+\s*/,'').replace(/\s+/g,' ').trim();
+  if(!/[A-Za-z]{2}/.test(name)||TAX.test(name)||DISC.test(name)||META.test(name)||ADDRESS.test(name))continue;
+  // Rightmost numeric column is the extended line amount (not unit rate).
+  found.push({name:name.slice(0,75),price:Math.abs(last.value)});pending=found.length-1;
  }
  return finishResult({items:found,tax,discount,subtotal,total,rawText:lines.join('\n')});
 }
@@ -100,7 +116,7 @@ function parseFallbackText(text){
   if(TAX.test(line)){if(last)tax+=Math.abs(last.value);continue}if(DISC.test(line)){if(last)discount+=Math.abs(last.value);continue}
   if(GRAND.test(line)){if(last)total=Math.abs(last.value);continue}if(SUB.test(line)){if(last)subtotal=Math.abs(last.value);continue}
   if(!last){if(pending>=0&&/[A-Za-z]{2}/.test(line)&&line.length<60)found[pending].name+=' '+line;continue}
-  if(META.test(line)||last.value<=0)continue;const name=line.slice(0,last.index).replace(/^\s*\d{1,3}[.)]?\s*/,'').trim();
+  if(META.test(line)||ADDRESS.test(line)||last.value<=0)continue;const name=line.slice(0,last.index).replace(/^\s*\d{1,3}[.)]?\s*/,'').trim();
   if(/[A-Za-z]{2}/.test(name)&&!TAX.test(name)&&!DISC.test(name)){found.push({name,price:Math.abs(last.value)});pending=found.length-1}
  }
  return finishResult({items:found,tax,discount,subtotal,total,rawText:text});
@@ -116,7 +132,7 @@ function preprocessVariants(image){
 }
 function loadImage(file){return new Promise((resolve,reject)=>{const url=URL.createObjectURL(file),img=new Image();img.onload=()=>{URL.revokeObjectURL(url);resolve(img)};img.onerror=reject;img.src=url})}
 function applyScan(result){
- if(/AED/i.test(result.rawText))setCurrency('AED');else if(/\$/.test(result.rawText))setCurrency('$');else setCurrency('₹');
+ setCurrency();
  items=result.items.map(x=>({id:nextItem++,name:x.name,price:x.price,people:[people[0].id]}));
  $('#tax').value=(result.tax||0).toFixed(2);$('#discount').value=(result.discount||0).toFixed(2);render();
  let msg=`Found ${result.items.length} items · detected item subtotal ${money(result.sum)}.`;
@@ -133,13 +149,13 @@ $('#scan').onclick=async()=>{
   worker=await Tesseract.createWorker('eng',1,{logger:m=>{if(m.status==='recognizing text')$('#status').textContent='Reading receipt… '+Math.round((m.progress||0)*100)+'%'}});
   let best=null;
   for(let i=0;i<variants.length;i++){
-   for(const psm of ['6','11']){
+   for(const psm of ['4','6','11']){
     await worker.setParameters({tessedit_pageseg_mode:psm,preserve_interword_spaces:'1'});
     const data=(await worker.recognize(variants[i])).data,parsed=parseOcr(data);
-    if(!best||((parsed.ok?1000:0)+parsed.items.length*2-(parsed.diff??20))>((best.ok?1000:0)+best.items.length*2-(best.diff??20)))best=parsed;
-    if(parsed.ok&&parsed.items.length>=2)break;
+    if(!best||((parsed.ok?1000:0)+parsed.items.length*2-(parsed.diff??10000))>((best.ok?1000:0)+best.items.length*2-(best.diff??10000)))best=parsed;
+    
    }
-   if(best?.ok&&best.items.length>=2)break;
+   
   }
   if(!best?.items.length){const data=(await worker.recognize(variants[0])).data;best=parseFallbackText(data.text)}
   if(best?.items.length)applyScan(best);else $('#status').textContent='Could not confidently identify item rows. Try a clearer, straight-on photo or enter items manually.';
@@ -148,6 +164,6 @@ $('#scan').onclick=async()=>{
 };
 $('#sample').onclick=()=>{items=[{id:nextItem++,name:'Veg Hakka Noodles',price:220,people:[1,2]},{id:nextItem++,name:'Margherita Pizza',price:360,people:[2]},{id:nextItem++,name:'Cold Coffee',price:140,people:[1]}];$('#tax').value=36;$('#discount').value=50;render();$('#status').textContent='Sample loaded.'};
 $('#copy').onclick=async()=>{const c=calculate(),summary='Splitz — Bill split\n'+c.shares.map(s=>s.name+': '+money(s.total)).join('\n')+'\nTotal: '+money(c.net);try{await navigator.clipboard.writeText(summary);$('#copyStatus').textContent='Split summary copied.'}catch(e){$('#copyStatus').textContent=summary}};
-$('#reset').onclick=()=>{people=[{id:1,name:'You'},...Array.from({length:9},(_,i)=>({id:i+2,name:'Friend '+(i+1)}))];nextPerson=11;nextItem=1;items=[];setCurrency('₹');$('#tax').value=0;$('#discount').value=0;billImage=null;$('#preview').removeAttribute('src');$('#preview').style.display='none';$('#rawWrap').hidden=true;$('#status').textContent='Start with a photo of your bill.';render()};
+$('#reset').onclick=()=>{people=[{id:1,name:'You'},...Array.from({length:9},(_,i)=>({id:i+2,name:'Friend '+(i+1)}))];nextPerson=11;nextItem=1;items=[];setCurrency();$('#tax').value=0;$('#discount').value=0;billImage=null;$('#preview').removeAttribute('src');$('#preview').style.display='none';$('#rawWrap').hidden=true;$('#status').textContent='Start with a photo of your bill.';render()};
 if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 render();

@@ -1,4 +1,4 @@
-const CACHE='splitz-v12';
+const CACHE='splitz-v15';
 const APP_FILES=['./','./index.html','./style.css','./app.js','./manifest.webmanifest'];
 self.addEventListener('install',event=>{
  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(APP_FILES)).then(()=>self.skipWaiting()));

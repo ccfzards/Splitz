@@ -47,18 +47,18 @@
  <div class="section-title">03 / Items <button id="addItem" class="ghost">+ Add item</button></div>
  <div id="items"></div>
  <div class="row charge-fields">
-  <div><label>Tax / charges (<span class="cur">₹</span>)</label><input id="tax" type="number" min="0" step=".01" value="0"></div>
-  <div><label>Discount (<span class="cur">₹</span>)</label><input id="discount" type="number" min="0" step=".01" value="0"></div>
+  <div><label>Tax / charges (<span class="cur">Rs </span>)</label><input id="tax" type="number" min="0" step=".01" value="0"></div>
+  <div><label>Discount (<span class="cur">Rs </span>)</label><input id="discount" type="number" min="0" step=".01" value="0"></div>
  </div>
  <p class="muted small">Tax and discount are allocated proportionally to each person's item subtotal.</p>
 </section>
 
 <section class="card">
  <div class="section-title">04 / Who owes what?</div>
- <div class="splitline"><span class="muted">Items subtotal</span><strong id="subtotal">₹0.00</strong></div>
- <div class="splitline"><span class="muted">Tax / GST</span><strong id="taxView">₹0.00</strong></div>
- <div class="splitline"><span class="muted">Discount</span><strong id="discountView">−₹0.00</strong></div>
- <div class="splitline"><strong>Total bill</strong><strong class="total" id="grand">₹0.00</strong></div>
+ <div class="splitline"><span class="muted">Items subtotal</span><strong id="subtotal">Rs 0.00</strong></div>
+ <div class="splitline"><span class="muted">Tax / GST</span><strong id="taxView">Rs 0.00</strong></div>
+ <div class="splitline"><span class="muted">Discount</span><strong id="discountView">−Rs 0.00</strong></div>
+ <div class="splitline"><strong>Total bill</strong><strong class="total" id="grand">Rs 0.00</strong></div>
  <div id="shares" class="shares"></div>
  <div class="actions"><button id="copy">Copy split summary</button><button id="reset" class="secondary">Start over</button></div>
  <p id="copyStatus" class="muted small" aria-live="polite"></p>
